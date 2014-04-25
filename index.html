@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <title>messenger</title>
+    <script type="text/javascript" src="http://code.jquery.com/jquery-1.10.1.min.js"></script>
+    <script type="text/javascript" src="/socket.io/socket.io.js"></script>
+    <script type="text/javascript">
+    
+    	// document.domain = "test.com";
+        var socket = io.connect('http://<%=host%>');
+        
+        var member_id = '<%=member_id%>';
+        var nickname = '<%=nickname%>';
+        var target_member_id = '<%=target_member_id%>';
+        var target_nickname = '<%=target_nickname%>';
+        
+        if(member_id == 'undefined'){
+        	member_id = Math.floor(Math.random() * 1000) + 1;
+        }
+        
+        if(nickname == 'undefined'){
+        	nickname = 'guest_' + member_id;
+        }
+        
+        if(target_member_id == 'undefined'){
+        	target_member_id = '';
+        }
+        
+        if(target_nickname == 'undefined'){
+        	target_nickname = '';
+        }
+        
+        $(document).ready(function(){
+        	
+        	$('#member_id').val(member_id);
+        	$('#nickname').val(nickname);
+        	$('#target_member_id').val(target_member_id);
+        	$('#target_nickname').val(target_nickname);
+        	
+        	// ready chat
+        	socket.emit('readyChat', {member_id : member_id});
+        	
+        	// invited
+            socket.on('invite', function(data){
+            	console.log('invite');
+                if (confirm('Invite from ' + data.from_member_id)) { 
+					requestChat(data.from_member_id);
+				}
+                
+            });
+        	
+            // complete match
+            socket.on('completeMatch', function(data){
+                console.log('completeMatch');
+                $('.lobby').hide();
+                $('.wait').hide();
+                $('.chat').show();
+            });
+            
+            // receive message
+            socket.on('receiveMessage', function(data){
+                $('.chatResult').prepend('<li>' + data.nickname + ' : '+ data.message + '</li>');
+            });
+            
+            // disconnect
+            socket.on('disconnect', function(data){
+                console.log('disconnect');
+                $('.lobby').show();
+                $('.chat').hide();
+            });
+            
+           	// request chat
+            $('#btnRequestChat').click(function(){
+            	
+        		var target_member_id = $('#target_member_id').val();
+            	requestChat(target_member_id);
+            });
+       
+            // cancel chat
+            $('#btnCancelRequest').click(function(){
+                $('.lobby').show();
+                $('.wait').hide();
+                $('.chat').hide();
+                socket.emit('cancelRequest');
+            });
+            
+            // enter message
+            $('#inputMessage').keyup(function(e){
+                if (e.keyCode == 13){
+                    sendMessage();
+                }
+            });
+            
+            // send message
+            $('#btnChat').click(function(){
+                sendMessage();
+            });
+        });
+        
+        function sendMessage(){
+            var message = $('#inputMessage').val();
+            var nickname = $('#nickname').val();
+            
+            if (message.length < 1){
+                alert('내용을 입력하세요.');
+                return;
+            }
+            socket.emit('sendMessage', {nickname:nickname, message:message});
+            $('#inputMessage').val('');
+        }
+        
+        function requestChat(target_member_id){
+        	var nickname = $('#nickname').val();
+        	$('.lobby').hide();
+            $('.wait').show();
+            socket.emit('requestChat', {member_id : member_id, nickname : nickname, target_member_id : target_member_id, target_nickname : target_nickname});
+        }
+    </script>
+</head>
+<body>
+    <div class="lobby container">
+    	member_id : <input type="text" id="member_id" name="member_id" value=""/><br />
+    	nickname : <input type="text" id="nickname" name="nickname" value=""/><br />
+    	target_member_id : <input type="text" id="target_member_id" name="target_member_id" value=""/><br />
+    	target_nickname : <input type="text" id="target_nickname" name="target_nickname" value="" /><br />
+        <button id="btnRequestChat" class="btn">대화 요청</button>
+    </div>
+    <div class="wait container" style="display:none">
+        <div>기다리는 중...</div>
+        <button id="btnCancelRequest" class="btn">취소</button>
+    </div>
+    <div class="chat container" style="display:none">
+        <input type="text" id="inputMessage" class="input-medium search-query" />
+        <button type="submit" id="btnChat" class="btn">전송</button>
+        <ul class="chatResult">
+        </ul>
+    </div>
+</body>
+</html>
